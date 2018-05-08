@@ -1,0 +1,5 @@
+scipy
+editdistance
+h5py
+numpy
+cffi
