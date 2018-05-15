@@ -7,6 +7,7 @@ import h5py
 import torch
 from decoder import Decoder
 import util
+from data_loader import iwslt_data_loader
 
 
 def main():
@@ -14,6 +15,8 @@ def main():
     parser.add_argument('config', help='YAML config')
     parser.add_argument('--hyp_file', default=None, help="filename to write greedy hypothesis to")
     parser.add_argument('--logits_file', default=None, help="h5 filename to write logits to")
+    parser.add_argument('--audio_features', default=None, help="overwrites features to decode specified in the config file")
+    parser.add_argument('--model', help="model file to load")
     args = parser.parse_args()
 
     print("Using config {}".format(args.config))
@@ -46,6 +49,8 @@ def main():
 
     # Init data loader
     testLD = util.import_func(config['data']['valid']['data_loader'])
+    if args.audio_features is not None:
+        config['data']['valid']['audio_features'] = args.audio_features
     test_loader = testLD(test_dataset,
                            common_args=config['data']['common'],
                            custom_args=config['data']['valid'],
@@ -58,6 +63,7 @@ def main():
 
     config['model']['feat_size'] = feat_size
     config['model']['num_classes'] = len(labels)
+    config["model"]["load"] = args.model
     model = model_class(config['model'])
 
     device = torch.device("cuda" if config['general'].get("use_cuda", False) else "cpu")
@@ -85,23 +91,21 @@ def main():
         logits_file = h5py.File(args.logits_file, "a")
 
     if args.hyp_file:
-        hyp_file = open(args.hyp_file, "w")
+        hyp_file = open(args.hyp_file, "w", encoding="utf-8")
 
     # Decoding
     model.train(False)
     with torch.no_grad():
         for data in test_loader:
-            decoded_outputs, utt_ids, logits = forward_pass(data)
+            decoded_outputs, dataset_ids, logits = forward_pass(data)
 
-            for i, (decoded_output, utt_id) in enumerate(zip(decoded_outputs, utt_ids)):
-                decoded_string = " ".join([labels[x] for x in decoded_output]).replace("@@ ", "")
-                utt = test_dataset.get_item_info(utt_id)
-                # (spk_id='blair4', start_frame=6375, end_frame=8350)
+            for i, (decoded_output, dataset_id) in enumerate(zip(decoded_outputs, dataset_ids)):
+                decoded_string = " ".join([labels[x] for x in decoded_output]).replace("@@ ", "").replace("@@", "")
+                utt_id = test_dataset.get_utt_id(dataset_id)
                 if hyp_file is not None:
-                    hyp_file.write("{} {} {} {}\n".format(utt.spk_id, utt.start_frame, utt.end_frame, decoded_string))
-                utt_name = "{} {}\n".format(utt.spk_id, utt.start_frame, utt.end_frame)
-                if logits_file is not None and utt_name not in logits_file:
-                    logits_file.create_dataset(utt_name, data=logits[:,i,:])
+                    hyp_file.write("{} {}\n".format(utt_id, decoded_string))
+                if logits_file is not None and utt_id not in logits_file:
+                    logits_file.create_dataset(utt_id, data=logits[:,i,:])
 
     # Cleanup
     if logits_file is not None:

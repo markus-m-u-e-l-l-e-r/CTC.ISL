@@ -51,6 +51,10 @@ class SequenceDataset(Dataset):
     def __len__(self):
         return len(self.utterances)
 
+    def get_utt_id(self, utt_id):
+        utt = self.utterances[utt_id]
+        return utt.id
+
     def _feat_add_context(self, feat):
         feature_list = []
         for shift in range(-self.left, self.right+1):
