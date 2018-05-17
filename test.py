@@ -43,14 +43,17 @@ def main():
         labels_tmp = json.load(label_file)
     labels = {int(key): labels_tmp[key] for key in labels_tmp}
 
+    # TODO: Refactor overwriting of the config and find a better solution for testing
+    if args.audio_features is not None:
+        config['data']['valid']['audio_features'] = args.audio_features
+    config['data']['valid']["input_text"] = ""
+
     # Init data set
     testDS = util.import_func(config['data']['valid']['data_set'])
     test_dataset = testDS(labels, config['data']['common'], config['data']['valid'])
 
     # Init data loader
     testLD = util.import_func(config['data']['valid']['data_loader'])
-    if args.audio_features is not None:
-        config['data']['valid']['audio_features'] = args.audio_features
     test_loader = testLD(test_dataset,
                            common_args=config['data']['common'],
                            custom_args=config['data']['valid'],
@@ -95,6 +98,7 @@ def main():
 
     # Decoding
     model.train(False)
+    hypos = []
     with torch.no_grad():
         for data in test_loader:
             decoded_outputs, dataset_ids, logits = forward_pass(data)
@@ -102,10 +106,15 @@ def main():
             for i, (decoded_output, dataset_id) in enumerate(zip(decoded_outputs, dataset_ids)):
                 decoded_string = " ".join([labels[x] for x in decoded_output]).replace("@@ ", "").replace("@@", "")
                 utt_id = test_dataset.get_utt_id(dataset_id)
-                if hyp_file is not None:
-                    hyp_file.write("{} {}\n".format(utt_id, decoded_string))
+                hypos.append((int(utt_id), decoded_string))
                 if logits_file is not None and utt_id not in logits_file:
                     logits_file.create_dataset(utt_id, data=logits[:,i,:])
+
+    if hyp_file is not None:
+        hypos.sort()
+        for utt_id, hypo in hypos:
+            hyp_file.write("{}\n".format(hypo))
+         
 
     # Cleanup
     if logits_file is not None:

@@ -33,7 +33,16 @@ class SequenceDataset(Dataset):
         :param unit_to_id:
         :return: list of UTTERANCES sorted (asc) by their length, unusable utterances are already filtered out
         """
+
+        # Hack for testing without any transcription
+        # TODO: Refactor
+        if file_path == "":
+            utterances = [UTTERANCE(key, []) for key in self.audio_file.keys()]
+            utterances.sort(key=lambda k: len(self.audio_file[k.id])) 
+            return utterances
+
         utterances = []
+
         with open(file_path, mode="r", encoding="utf-8") as file:
             for i, line in enumerate(file):
                 target_units = line.split()
