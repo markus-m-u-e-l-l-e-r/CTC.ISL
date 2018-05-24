@@ -64,9 +64,11 @@ def main():
 
     model_class = util.import_func(config['model']['class'])
 
+    # TODO: Use different approach to define model during testing
     config['model']['feat_size'] = feat_size
     config['model']['num_classes'] = len(labels)
     config["model"]["load"] = args.model
+    config["model"].pop("remove_params", None)
     model = model_class(config['model'])
 
     device = torch.device("cuda" if config['general'].get("use_cuda", False) else "cpu")
