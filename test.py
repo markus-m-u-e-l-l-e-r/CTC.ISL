@@ -110,7 +110,7 @@ def main():
                 utt_id = test_dataset.get_utt_id(dataset_id)
                 hypos.append((int(utt_id), decoded_string))
                 if logits_file is not None and utt_id not in logits_file:
-                    logits_file.create_dataset(utt_id, data=logits[:,i,:])
+                    logits_file.create_dataset(utt_id, data=logits[:,i,:].cpu())
 
     if hyp_file is not None:
         hypos.sort()
